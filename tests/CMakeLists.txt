@@ -133,6 +133,12 @@ dw3_add_test(test_osd
     LIBS dw3runtime)
 target_include_directories(test_osd PRIVATE ${PROJECT_SOURCE_DIR}/app)
 
+# Map load detection from disc reads (the watch has no SDL dependency).
+dw3_add_test(test_map_load_watch
+    SOURCES app/test_map_load_watch.cpp ${PROJECT_SOURCE_DIR}/app/present/map_load_watch.cpp
+    LIBS dw3render dw3runtime)
+target_include_directories(test_map_load_watch PRIVATE ${PROJECT_SOURCE_DIR}/app)
+
 # Settings model, presets, settings.toml and fast-forward pacing.
 dw3_add_test(test_settings
     SOURCES app/test_settings.cpp app/test_controls_settings.cpp app/test_display.cpp app/test_frame_stats.cpp

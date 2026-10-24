@@ -18,6 +18,12 @@
 
 namespace dw3::texrep {
 
+// Where a map's file sits on the disc: its first sector and the number of sectors it spans.
+struct MapExtent {
+    std::string name;
+    uint32_t first_lba = 0, sector_count = 0;
+};
+
 // The stage pack files of the game. `path` is a .cue or .bin disc image, or a directory that holds the files
 // (either the disc's root, with an AAA folder, or the folder that contains the Z_STAGE folder, or Z_STAGE itself).
 class StageSource {
@@ -27,6 +33,8 @@ public:
     // Map names such as "S226", in ascending order.
     const std::vector<std::string>& maps() const { return names_; }
     bool read(const std::string& map, std::vector<uint8_t>& out, std::string& error);
+    // The sectors each map occupies on the disc; empty for a directory of extracted files.
+    std::vector<MapExtent> extents() const;
 
 private:
     struct DiscFile {

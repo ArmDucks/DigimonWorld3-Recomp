@@ -105,6 +105,7 @@
 #include "settings/fastforward.h"
 #include "present/post_options.h"
 #include "present/presenter.h"
+#include "present/map_load_watch.h"
 #include "present/texture_packs.h"
 #include "assets.h"
 #include "disc_check.h"
@@ -407,7 +408,12 @@ int main(int argc, char** argv) {
         }
         disc = outcome.disc_path;
     }
+    // Fed from the disc reads with the map the game starts loading; the presenter consumes it through signal().
+    auto map_load_watch = std::make_shared<dw3app::MapLoadWatch>();
     dw3::host::Config cfg;
+    cfg.wrap_disc = [map_load_watch](dw3::SectorSource& inner) {
+        return std::make_unique<dw3app::WatchedSectorSource>(inner, map_load_watch);
+    };
     cfg.disc_path = *disc;
     cfg.module_path = !opt.module.empty() ? opt.module : dw3::platform::path_to_utf8(prepared_module);
     cfg.card_mode = active.system.memcards ? dw3::host::CardMode::Files : dw3::host::CardMode::None;
@@ -456,6 +462,7 @@ int main(int argc, char** argv) {
         po.widescreen = static_cast<dw3::WideAspect>(g.widescreen);
         po.texture_pack = texture_packs.get(g);
         po.stage_library = stage_libraries.get(g, *disc);
+        map_load_watch->attach(po.stage_library);
         po.internal_res = g.internal_res;
         if (in_field) {
             const int usable = po.texture_pack ? po.texture_pack->scale() : po.texture_filter == 2 ? 2 : 1;

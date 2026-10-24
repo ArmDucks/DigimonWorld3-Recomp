@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <span>
+#include <string_view>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -51,8 +52,9 @@ public:
     static std::shared_ptr<StageLibrary> open_async(const std::filesystem::path& path, std::string& error);
 
     // Adds one map to the index (for libraries that are filled by hand). Not safe while other threads read.
-    void add_map(std::string name, const StagePack& pack);
-    void finish() { ready_ = true; }
+    // `sector_count` is zero for a map whose place on the disc is not known.
+    void add_map(std::string name, const StagePack& pack, uint32_t first_lba = 0, uint32_t sector_count = 0);
+    void finish();
 
     bool ready() const { return ready_; }
     // Blocks until the background indexing is done (tests and tools that need the same result on every run).
@@ -61,6 +63,10 @@ public:
     }
     std::size_t map_count() const { return maps_.size(); }
     const Map& map(uint32_t index) const { return maps_[index]; }
+    // The map whose file holds this disc sector, or -1 when none does or the index is not ready. Thread safe once ready().
+    int map_at_lba(uint32_t lba) const;
+    // The index of the map with this name, or -1.
+    int map_index(std::string_view name) const;
     // The cells that hold a picture with these keys, over all maps.
     std::span<const TileRef> refs(uint64_t block_hash, uint64_t clut_hash) const;
 
@@ -72,8 +78,14 @@ private:
     struct KeyHash {
         std::size_t operator()(const std::pair<uint64_t, uint64_t>& k) const { return static_cast<std::size_t>(k.first * 0x9E3779B97F4A7C15ull ^ k.second); }
     };
+    struct Extent {
+        uint32_t first = 0, end = 0;  // sectors [first, end)
+        uint32_t map = 0;
+    };
+    void sort_extents();
     Loader loader_;
     std::vector<Map> maps_;
+    std::vector<Extent> extents_;  // sorted by first sector; only maps with a known place on the disc
     std::unordered_map<std::pair<uint64_t, uint64_t>, std::vector<TileRef>, KeyHash> index_;
     std::atomic<bool> ready_{false};
     std::thread worker_;

@@ -78,6 +78,13 @@ std::unique_ptr<StageSource> StageSource::open(const std::filesystem::path& path
     return source;
 }
 
+std::vector<MapExtent> StageSource::extents() const {
+    std::vector<MapExtent> out;
+    out.reserve(disc_files_.size());
+    for (const auto& [name, file] : disc_files_) out.push_back({name, file.lba, (file.size + 2047) / 2048});
+    return out;
+}
+
 bool StageSource::read(const std::string& map, std::vector<uint8_t>& out, std::string& error) {
     if (disc_) {
         const auto it = disc_files_.find(map);

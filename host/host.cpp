@@ -119,6 +119,7 @@ struct Host::Worker {
 struct Host::Impl {
     Config cfg;
     std::unique_ptr<DiscSource> disc_source;
+    std::unique_ptr<SectorSource> disc_wrapper;
     std::array<std::vector<uint8_t>, 2> image;
     std::array<std::filesystem::path, 2> path;  // empty = memory only
     std::array<bool, 2> dirty{};
@@ -248,7 +249,8 @@ std::unique_ptr<Host> Host::create(const Config& cfg, std::string& error) {
     Bios& bios = *h->bios_;
     Host* self = h.get();
     im.disc_source = std::make_unique<DiscSource>(*h->disc_);
-    m.cdrom().set_disc(im.disc_source.get());
+    if (cfg.wrap_disc) im.disc_wrapper = cfg.wrap_disc(*im.disc_source);
+    m.cdrom().set_disc(im.disc_wrapper ? im.disc_wrapper.get() : im.disc_source.get());
     m.kernel_idle = [self]() { return self->bios_->host_depth() == 0; };
     m.spu().start(m.scheduler());  // timed sample generation (a periodic event; plain Machine tests stay quiet)
 

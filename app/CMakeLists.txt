@@ -5,6 +5,7 @@ add_executable(dw3recomp main.cpp
     present/software_presenter.cpp
     present/hw_presenter.cpp
     present/texture_packs.cpp
+    present/map_load_watch.cpp
     present/native_window.cpp
     present/monitors.cpp)
 if(WIN32)

@@ -1,5 +1,8 @@
 #include "dw3/texrep/stage_library.h"
 
+#include <algorithm>
+#include <map>
+
 #include "dw3/texrep/stage_dump.h"
 
 namespace dw3::texrep {
@@ -8,7 +11,7 @@ StageLibrary::~StageLibrary() {
     if (worker_.joinable()) worker_.join();
 }
 
-void StageLibrary::add_map(std::string name, const StagePack& pack) {
+void StageLibrary::add_map(std::string name, const StagePack& pack, uint32_t first_lba, uint32_t sector_count) {
     Map m;
     m.name = std::move(name);
     m.cols = pack.cols;
@@ -27,6 +30,30 @@ void StageLibrary::add_map(std::string name, const StagePack& pack) {
         m.tiles.push_back(std::move(tile));
     }
     maps_.push_back(std::move(m));
+    if (sector_count) extents_.push_back({first_lba, first_lba + sector_count, map_index});
+}
+
+void StageLibrary::sort_extents() {
+    std::sort(extents_.begin(), extents_.end(), [](const Extent& a, const Extent& b) { return a.first < b.first; });
+}
+
+void StageLibrary::finish() {
+    sort_extents();
+    ready_ = true;
+}
+
+int StageLibrary::map_at_lba(uint32_t lba) const {
+    if (!ready_) return -1;
+    auto it = std::upper_bound(extents_.begin(), extents_.end(), lba, [](uint32_t v, const Extent& e) { return v < e.first; });
+    if (it == extents_.begin()) return -1;
+    --it;
+    return lba < it->end ? static_cast<int>(it->map) : -1;
+}
+
+int StageLibrary::map_index(std::string_view name) const {
+    for (std::size_t i = 0; i < maps_.size(); ++i)
+        if (maps_[i].name == name) return static_cast<int>(i);
+    return -1;
 }
 
 std::span<const StageLibrary::TileRef> StageLibrary::refs(uint64_t block_hash, uint64_t clut_hash) const {
@@ -46,14 +73,18 @@ std::shared_ptr<StageLibrary> StageLibrary::open_async(const std::filesystem::pa
         return source->read(map, data, err) && parse_stage_pack(data, out, err);
     };
     StageLibrary* self = lib.get();
-    lib->worker_ = std::thread([self, source, mutex] {
+    std::map<std::string, MapExtent> extents;
+    for (MapExtent& e : source->extents()) extents[e.name] = std::move(e);
+    lib->worker_ = std::thread([self, source, mutex, extents = std::move(extents)] {
         for (const std::string& name : source->maps()) {
             StagePack pack;
             std::string err;
             if (!self->loader_(name, pack, err)) continue;
-            self->add_map(name, pack);
+            const auto found = extents.find(name);
+            if (found == extents.end()) self->add_map(name, pack);
+            else self->add_map(name, pack, found->second.first_lba, found->second.sector_count);
         }
-        self->ready_ = true;
+        self->finish();
     });
     return lib;
 }

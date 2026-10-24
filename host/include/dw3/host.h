@@ -42,6 +42,9 @@ struct Config {
     bool trace_bios = false;
     uint32_t trace_lo = 0, trace_hi = 0;  // bus I/O trace range (physical addresses), 0/0 = off
     std::function<void(const std::string&)> log;  // diagnostics (optional)
+    // Optional: wraps the disc's sector source before the drive gets it (to watch reads). The wrapper must forward
+    // every call; it is destroyed before the source it wraps.
+    std::function<std::unique_ptr<SectorSource>(SectorSource& inner)> wrap_disc;
 };
 
 // Thrown by Host::stop() to unwind out of the game.
