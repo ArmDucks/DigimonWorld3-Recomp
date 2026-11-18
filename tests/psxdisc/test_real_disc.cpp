@@ -54,6 +54,27 @@ TEST(RealDisc, HiddenTreeHas263Overlays) {
     EXPECT_EQ(field->size, 100168u);
 }
 
+TEST(RealDisc, HiddenRootIsFound) {
+    DW3_REQUIRE_DISC();
+    auto disc = Disc::open(dw3test::game_cue());
+    EXPECT_EQ(find_hidden_root(*disc), 473u);
+}
+
+TEST(RealDiscEurope, HiddenTreeAndBootExecutable) {
+    DW3_REQUIRE_EUROPE_DISC();
+    auto disc = Disc::open(dw3test::europe_cue());
+    ASSERT_TRUE(disc);
+    EXPECT_EQ(find_hidden_root(*disc), 475u);
+    auto files = walk(*disc, 475, kForm1DataSize, "AAA/");
+    EXPECT_EQ(files.size(), 2382u);
+    auto root = read_root(*disc);
+    ASSERT_TRUE(root);
+    const auto visible = walk(*disc, root->lba, root->size);
+    auto boot = std::find_if(visible.begin(), visible.end(), [](auto& f) { return f.path == "SLES_039.36"; });
+    ASSERT_NE(boot, visible.end());
+    EXPECT_EQ(boot->size, 923648u);
+}
+
 TEST(RealDisc, XaAudioSectorsPresent) {
     DW3_REQUIRE_DISC();
     auto disc = Disc::open(dw3test::game_cue());

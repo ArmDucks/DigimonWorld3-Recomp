@@ -62,11 +62,27 @@ private:
     psxdisc::Disc& disc_;
 };
 
+// The executable named by "BOOT = cdrom:\\SLES_039.36;1" in SYSTEM.CNF.
+std::string boot_file_name(const std::vector<uint8_t>& system_cnf) {
+    const std::string text(system_cnf.begin(), system_cnf.end());
+    const size_t boot = text.find("BOOT");
+    if (boot == std::string::npos) return {};
+    const size_t end = text.find(';', boot);
+    const size_t start = end == std::string::npos ? end : text.find_last_of("\\:", end);
+    if (start == std::string::npos || end == std::string::npos || end <= start) return {};
+    return text.substr(start + 1, end - start - 1);
+}
+
 std::vector<uint8_t> read_boot_exe(psxdisc::Disc& disc) {
     auto root = psxdisc::read_root(disc);
     if (!root) return {};
-    for (const auto& f : psxdisc::walk(disc, root->lba, root->size))
-        if (f.path == "SLUS_014.36") return disc.read_file(f.lba, f.size);
+    const auto files = psxdisc::walk(disc, root->lba, root->size);
+    for (const auto& cnf : files) {
+        if (cnf.path != "SYSTEM.CNF") continue;
+        const std::string name = boot_file_name(disc.read_file(cnf.lba, cnf.size));
+        for (const auto& f : files)
+            if (!name.empty() && f.path == name) return disc.read_file(f.lba, f.size);
+    }
     return {};
 }
 
@@ -228,7 +244,7 @@ std::unique_ptr<Host> Host::create(const Config& cfg, std::string& error) {
     }
     h->exe_ = read_boot_exe(*h->disc_);
     if (h->exe_.empty()) {
-        error = "SLUS_014.36 not found on disc";
+        error = "boot executable named in SYSTEM.CNF not found on disc";
         return nullptr;
     }
     if (!cfg.module_path.empty()) {

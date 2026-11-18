@@ -90,6 +90,7 @@
 #include <vector>
 
 #include "audio_out.h"
+#include "ingame/game_addresses.h"
 #include "dw3/recomp.h"
 #include "dw3/host.h"
 #include "dw3/platform.h"
@@ -324,20 +325,27 @@ int main(int argc, char** argv) {
     auto disc_usable = [](const std::string& p) { return dw3setup::check_disc(dw3::platform::path_from_utf8(p)).ok(); };
     std::optional<std::string> disc = dw3setup::locate_disc(opt.disc, active.system.disc_path, "game/Digimon World 3 (USA).cue", disc_usable);
     // Without recompiled code in the executable the game is a module built from the disc (see module_build.h).
+    auto game_config_of = [](const dw3setup::ExpectedDisc& edition) -> std::string {
+        return edition.serial == dw3setup::retail_europe().serial ? kGameConfigEuropeToml : kGameConfigUsaToml;
+    };
+    auto edition_of = [](const std::string& p) { return dw3setup::check_disc(dw3::platform::path_from_utf8(p)).edition; };
     std::optional<dw3setup::PrepareSetup> prepare;
     std::filesystem::path prepared_module;
     if (!dw3::host::Host::has_linked_code() && opt.module.empty()) {
-        const std::string build_id = dw3setup::make_build_id(DW3_VERSION, kGameConfigToml, dw3setup::retail_usa().exe_sha256);
-        prepared_module = dw3setup::module_path(dw3::platform::user_data_dir(), build_id, dw3::platform::host_os());
+        const char* base = SDL_GetBasePath();
+        auto toolchain = dw3setup::find_toolchain(base ? dw3::platform::path_from_utf8(base) : std::filesystem::path());
+        const dw3setup::PrepareSetup setup{toolchain.value_or(dw3setup::Toolchain{}), DW3_VERSION, game_config_of, false};
+        const dw3setup::ExpectedDisc* edition = disc ? edition_of(*disc) : nullptr;
         std::error_code module_ec;
-        if (!std::filesystem::exists(prepared_module, module_ec)) {
-            const char* base = SDL_GetBasePath();
-            auto toolchain = dw3setup::find_toolchain(base ? dw3::platform::path_from_utf8(base) : std::filesystem::path());
+        if (edition) {
+            prepared_module = dw3setup::module_path(dw3::platform::user_data_dir(), dw3setup::build_id_of(setup, *edition), dw3::platform::host_os());
+        }
+        if (!edition || !std::filesystem::exists(prepared_module, module_ec)) {
             if (!toolchain) {
                 std::fprintf(stderr, "this installation is incomplete: the toolchain folder next to the program is missing\n");
                 return 1;
             }
-            prepare = dw3setup::PrepareSetup{*toolchain, kGameConfigToml, build_id, false};
+            prepare = setup;
         }
     }
     if (opt.prepare) {
@@ -352,9 +360,14 @@ int main(int argc, char** argv) {
         dw3setup::PrepareConfig config;
         config.user_data = dw3::platform::user_data_dir();
         config.disc = dw3::platform::path_from_utf8(*disc);
-        config.game_config = prepare->game_config;
+        const dw3setup::ExpectedDisc* edition = edition_of(*disc);
+        if (!edition) {
+            std::fprintf(stderr, "unsupported disc image\n");
+            return 1;
+        }
+        config.game_config = prepare->game_config(*edition);
         config.toolchain = prepare->toolchain;
-        config.build_id = prepare->build_id;
+        config.build_id = dw3setup::build_id_of(*prepare, *edition);
         config.jobs = std::max(2u, std::thread::hardware_concurrency());
         config.run = [](const std::vector<std::string>& command, const std::atomic<bool>& cancel) { return dw3setup::run_process(command, cancel); };
         dw3setup::ModulePreparer preparer(std::move(config));
@@ -407,6 +420,10 @@ int main(int argc, char** argv) {
             if (!dw3app::save_settings_file(config_file, stored, err)) SDL_Log("settings: %s", err.c_str());
         }
         disc = outcome.disc_path;
+        if (!dw3::host::Host::has_linked_code() && opt.module.empty() && prepare) {
+            if (const dw3setup::ExpectedDisc* edition = edition_of(*disc))
+                prepared_module = dw3setup::module_path(dw3::platform::user_data_dir(), dw3setup::build_id_of(*prepare, *edition), dw3::platform::host_os());
+        }
     }
     // Fed from the disc reads with the map the game starts loading; the presenter consumes it through signal().
     auto map_load_watch = std::make_shared<dw3app::MapLoadWatch>();
@@ -414,6 +431,14 @@ int main(int argc, char** argv) {
     cfg.wrap_disc = [map_load_watch](dw3::SectorSource& inner) {
         return std::make_unique<dw3app::WatchedSectorSource>(inner, map_load_watch);
     };
+    if (dw3::host::Host::has_linked_code() && opt.module.empty()) {
+        const dw3setup::ExpectedDisc* edition = edition_of(*disc);
+        if (edition && edition->serial != dw3setup::retail_usa().serial) {
+            std::fprintf(stderr, "this build has the code of the USA release linked in; use a build without it or pass --module for %s\n", edition->serial.c_str());
+            return 1;
+        }
+    }
+    dw3app::ingame::select_game_addresses(edition_of(*disc) == &dw3setup::retail_europe());
     cfg.disc_path = *disc;
     cfg.module_path = !opt.module.empty() ? opt.module : dw3::platform::path_to_utf8(prepared_module);
     cfg.card_mode = active.system.memcards ? dw3::host::CardMode::Files : dw3::host::CardMode::None;
@@ -810,8 +835,7 @@ int main(int argc, char** argv) {
         const bool last = opt.max_frames >= 0 && static_cast<int64_t>(frame) >= opt.max_frames;
         const bool periodic = opt.shot_every > 0 && frame % static_cast<uint64_t>(opt.shot_every) == 0;
         const bool want_shot = periodic || (last && !opt.screenshot.empty());
-        constexpr uint32_t kGameMode = 0x800554D0;
-        const uint32_t game_mode = dw3_read32(&machine.ctx(), kGameMode);
+        const uint32_t game_mode = dw3_read32(&machine.ctx(), dw3app::ingame::game_addresses().gameMode);
         if ((game_mode == 2) != in_field) {
             in_field = game_mode == 2;
             presenter->update_options(present_options(settings.active()), machine.gpu());
@@ -885,7 +909,7 @@ int main(int argc, char** argv) {
     };
 
     host->prepare_save_states();
-    SDL_Log("booting SLUS_014.36");
+    SDL_Log("booting %s", disc->c_str());
     auto result = host->run(on_frame);
     if (opt.frame_stats) SDL_Log("frame stats:\n%s", frame_stats.report().c_str());
     if (result.end == dw3::host::RunResult::End::Fatal) {

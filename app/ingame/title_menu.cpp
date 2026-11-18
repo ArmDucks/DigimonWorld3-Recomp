@@ -1,14 +1,13 @@
 #include "title_menu.h"
+#include "game_addresses.h"
 
 namespace dw3app::ingame {
 namespace {
 
 // ---- The title menu (STDWTITL, game mode 0xE; addresses in the USA executable) --------------------------------------
 
-constexpr uint32_t kGameMode = 0x800554D0, kTitleMode = 0xE;
-constexpr uint32_t kMenuTask = 0x80084B68;  // per-frame update of the Start / Continue menu task; a0 is the task
+constexpr uint32_t kTitleMode = 0xE;
 // The overlay's code overlaps other mode overlays at this address: its first branches tell it apart.
-constexpr uint32_t kMenuTaskSignatureAt = 0x80084B88, kMenuTaskSignature = 0x10650017;
 
 // Task fields.
 constexpr uint32_t kState = 0x0C, kSubState = 0x10;
@@ -20,14 +19,8 @@ constexpr uint32_t kScreenOpen = 0x53455453;
 // The game's task runner (MAIN): runs the children of a group, once per frame from the root. Everything drawn into
 // the title's one layer lands behind what was drawn before it, so the screen is drawn first, before the title's own
 // tasks.
-constexpr uint32_t kRunChildren = 0x80017ECC;
-constexpr uint32_t kRunObject = 0x80017DDC;  // (object) runs one object and its children; it swaps stacks
 
 // Window, cursor and fade objects of MAIN (the same the field menu builds its list from).
-constexpr uint32_t kCreateWindow = 0x8001AAB4;  // (layer, style, x, y)
-constexpr uint32_t kCreateCursor = 0x8001AFE0;  // (layer, kind, x, y)
-constexpr uint32_t kCreateFade = 0x80012070;    // (layer): a full-screen quad that darkens what is behind it
-constexpr uint32_t kWindowTick = 0x8001A890, kObjectCleanup = 0x800142E0;
 constexpr uint32_t kObjectState = 0x0C, kObjectTick = 0x48, kObjectCleanupAt = 0x4C;
 constexpr uint32_t kFadeLevel = 0x5C, kFadeHeld = 2;  // the fade stays at its level in state 2; level 0xFF00 is black
 constexpr uint32_t kFadeDimmed = 0x8800;
@@ -44,10 +37,10 @@ constexpr uint32_t kRows = 5;
 struct TitleHook {
     static TitleMenuSettings* instance;
 
-    static bool is_title(const Guest& g) { return g.r32(kGameMode) == kTitleMode; }
+    static bool is_title(const Guest& g) { return g.r32(game_addresses().gameMode) == kTitleMode; }
 
     static bool is_menu(const Guest& g) {
-        return is_title(g) && g.r32(kMenuTaskSignatureAt) == kMenuTaskSignature;
+        return is_title(g) && g.r32(game_addresses().menuTaskSignatureAt) == game_addresses().menuTaskSignature;
     }
 
     static bool waiting(const Guest& g, uint32_t task) {
@@ -55,11 +48,11 @@ struct TitleHook {
     }
 
     static bool alive(const Guest& g, uint32_t object, uint32_t tick) {
-        return object != 0 && g.r32(object + kObjectTick) == tick && g.r32(object + kObjectCleanupAt) == kObjectCleanup;
+        return object != 0 && g.r32(object + kObjectTick) == tick && g.r32(object + kObjectCleanupAt) == game_addresses().objectCleanup;
     }
 
     static uint32_t make_window(Guest& g, uint32_t x, uint32_t y) {
-        const uint32_t window = g.call(kCreateWindow, kLayer, kStyleText, x, y);
+        const uint32_t window = g.call(game_addresses().createWindow, kLayer, kStyleText, x, y);
         g.call(g.r32(window + kWindowShow), window, 1);
         return window;
     }
@@ -70,22 +63,22 @@ struct TitleHook {
         w.row_count = kRows;
         w.centred = true;
         for (uint32_t i = 0; i < kRows; ++i) w.rows[i] = make_window(g, kRowX, kFirstRowY + kRowPitch * i);
-        w.cursor = g.call(kCreateCursor, kLayer, 0, kTitleCursorX, kFirstRowY);
+        w.cursor = g.call(game_addresses().createCursor, kLayer, 0, kTitleCursorX, kFirstRowY);
         w.cursor_x = kTitleCursorX;
         g.call(g.r32(w.cursor + kCursorShow), w.cursor, 1);
-        self.backdrop_ = g.call(kCreateFade, kLayer);
+        self.backdrop_ = g.call(game_addresses().createFade, kLayer);
         g.w32(self.backdrop_ + kObjectState, kFadeHeld);
         g.w32(self.backdrop_ + kFadeLevel, kFadeDimmed);
     }
 
     // The hint under the logo: the way to the settings, in the game's window like every other text.
     static void show_hint(Guest& g, TitleMenuSettings& self) {
-        if (!alive(g, self.hint_, kWindowTick)) self.hint_ = make_window(g, kHintX, kHintY);
+        if (!alive(g, self.hint_, game_addresses().windowTick)) self.hint_ = make_window(g, kHintX, kHintY);
         g.show(self.hint_, text_of({select_name_of(self.model_), ": SETTINGS"}));
     }
 
     // The objects belong to no parent that would run them, so the screen runs them itself.
-    static void run_object(Guest& g, uint32_t object) { g.call(kRunObject, object); }
+    static void run_object(Guest& g, uint32_t object) { g.call(game_addresses().runObject, object); }
 
     static void run_screen(Guest& g, const TitleMenuSettings& self) {
         const ScreenWindows& w = self.windows_;
@@ -106,7 +99,7 @@ struct TitleHook {
             if (!is_title(g)) {
                 self->windows_ = {};
                 self->backdrop_ = self->hint_ = self->task_ = 0;
-            } else if (self->task_ && g.r32(self->task_ + kObjectTick) == kMenuTask) {
+            } else if (self->task_ && g.r32(self->task_ + kObjectTick) == game_addresses().menuTask) {
                 const uint32_t a0 = ctx->r[4], sp = ctx->r[29], ra = ctx->r[31];
                 if (g.r32(self->task_ + kScreenMarker) == kScreenOpen) run_screen(g, *self);
                 else if (waiting(g, self->task_)) run_object(g, self->hint_);
@@ -115,14 +108,14 @@ struct TitleHook {
                 ctx->r[31] = ra;
             }
         }
-        machine.lookup_original(kRunChildren)(ctx);
+        machine.lookup_original(game_addresses().runChildren)(ctx);
     }
 
     static void menu_task(RecompContext* ctx) {
         TitleMenuSettings* self = instance;
         auto& machine = *static_cast<dw3::Machine*>(ctx->machine);
         Guest g(ctx);
-        if (!self || !is_menu(g)) return machine.lookup_original(kMenuTask)(ctx);
+        if (!self || !is_menu(g)) return machine.lookup_original(game_addresses().menuTask)(ctx);
         const uint32_t task = ctx->r[4];
         const uint32_t sp = ctx->r[29], ra = ctx->r[31];
         const auto restore = [&] {
@@ -132,7 +125,7 @@ struct TitleHook {
         };
         if (g.r32(task + kScreenMarker) == kScreenOpen) {
             // A loaded save state can come back with the screen open and its objects gone.
-            if (!alive(g, self->windows_.header, kWindowTick)) build_windows(g, *self);
+            if (!alive(g, self->windows_.header, game_addresses().windowTick)) build_windows(g, *self);
             self->task_ = task;
             uint32_t selected = g.r32(task + kScreenCursor);
             const bool close = step_screen(g, self->model_, selected);
@@ -142,12 +135,12 @@ struct TitleHook {
             restore();
             return;
         }
-        machine.lookup_original(kMenuTask)(ctx);
+        machine.lookup_original(game_addresses().menuTask)(ctx);
         if (!waiting(g, task)) return;
         self->task_ = task;
         show_hint(g, *self);
         if (g.pressed(kSelect, false)) {
-            if (!alive(g, self->windows_.header, kWindowTick)) build_windows(g, *self);
+            if (!alive(g, self->windows_.header, game_addresses().windowTick)) build_windows(g, *self);
             g.w32(task + kScreenCursor, 0);
             g.w32(task + kScreenMarker, kScreenOpen);
             g.play(kSoundConfirm);
@@ -161,13 +154,13 @@ TitleMenuSettings* TitleHook::instance = nullptr;
 
 TitleMenuSettings::TitleMenuSettings(dw3::Machine& machine, ScreenModel& model) : machine_(machine), model_(model) {
     TitleHook::instance = this;
-    machine_.override_function(kMenuTask, &TitleHook::menu_task);
-    machine_.override_function(kRunChildren, &TitleHook::run_children);
+    machine_.override_function(game_addresses().menuTask, &TitleHook::menu_task);
+    machine_.override_function(game_addresses().runChildren, &TitleHook::run_children);
 }
 
 TitleMenuSettings::~TitleMenuSettings() {
-    machine_.override_function(kMenuTask, nullptr);
-    machine_.override_function(kRunChildren, nullptr);
+    machine_.override_function(game_addresses().menuTask, nullptr);
+    machine_.override_function(game_addresses().runChildren, nullptr);
     TitleHook::instance = nullptr;
 }
 

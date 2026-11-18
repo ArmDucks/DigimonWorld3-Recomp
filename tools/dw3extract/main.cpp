@@ -1,7 +1,7 @@
-// dw3extract: lists / extracts the Digimon World 3 (USA) disc contents.
+// dw3extract: lists / extracts the Digimon World 3 disc contents.
 //
 // The visible ISO9660 tree only contains SYSTEM.CNF, SLUS_014.36 and DUMMY. The real game
-// data lives in an "AAA" directory tree whose root record sits at LBA 473 but is not linked
+// data lives in an "AAA" directory tree whose root record sits at LBA 473 (USA) / 475 (Europe) but is not linked
 // from the volume root, so we walk it explicitly.
 
 #include <cstdio>
@@ -13,8 +13,6 @@
 #include "psxdisc/iso9660.h"
 
 namespace fs = std::filesystem;
-
-constexpr uint32_t kHiddenRootLba = 473;
 
 static int usage() {
     std::fprintf(stderr,
@@ -36,7 +34,12 @@ int main(int argc, char** argv) {
         return 1;
     }
     auto files = psxdisc::walk(*disc, root->lba, root->size);
-    auto hidden = psxdisc::walk(*disc, kHiddenRootLba, psxdisc::kForm1DataSize, "AAA/");
+    auto hidden_root = psxdisc::find_hidden_root(*disc);
+    if (!hidden_root) {
+        std::fprintf(stderr, "hidden AAA tree not found\n");
+        return 1;
+    }
+    auto hidden = psxdisc::walk(*disc, *hidden_root, psxdisc::kForm1DataSize, "AAA/");
     files.insert(files.end(), hidden.begin(), hidden.end());
 
     std::string cmd = argv[2];

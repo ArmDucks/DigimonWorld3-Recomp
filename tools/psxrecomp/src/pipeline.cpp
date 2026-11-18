@@ -13,7 +13,6 @@ namespace psxrecomp {
 
 namespace {
 
-constexpr uint32_t kHiddenRootLba = 473;  // the AAA tree, not linked from the ISO9660 root
 
 std::vector<uint8_t> read_all(const fs::path& p) {
     std::ifstream f(p, std::ios::binary);
@@ -69,8 +68,10 @@ FileSource directory_source(const fs::path& root) {
 FileSource disc_source(psxdisc::Disc& disc) {
     auto files = std::make_shared<std::vector<psxdisc::FileEntry>>();
     if (auto root = psxdisc::read_root(disc)) *files = psxdisc::walk(disc, root->lba, root->size);
-    auto hidden = psxdisc::walk(disc, kHiddenRootLba, psxdisc::kForm1DataSize, "AAA/");
-    files->insert(files->end(), hidden.begin(), hidden.end());
+    if (auto hidden_root = psxdisc::find_hidden_root(disc)) {
+        auto hidden = psxdisc::walk(disc, *hidden_root, psxdisc::kForm1DataSize, "AAA/");
+        files->insert(files->end(), hidden.begin(), hidden.end());
+    }
     FileSource s;
     s.read = [&disc, files](const std::string& path) -> std::vector<uint8_t> {
         for (const auto& f : *files)

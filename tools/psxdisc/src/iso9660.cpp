@@ -69,4 +69,21 @@ std::vector<FileEntry> walk(Disc& disc, uint32_t dir_lba, uint32_t dir_size, con
     return out;
 }
 
+std::optional<uint32_t> find_hidden_root(Disc& disc) {
+    constexpr uint32_t kFirstLba = 17, kLastLba = 4096;
+    uint8_t sector[kForm1DataSize];
+    for (uint32_t lba = kFirstLba; lba < kLastLba; ++lba) {
+        if (!disc.read_form1(lba, sector)) continue;
+        if (sector[0] < 34 || sector[32] != 1 || sector[33] != 0 || !(sector[25] & 0x02) || le32(sector + 2) != lba)
+            continue;
+        bool has_dat = false, has_pro = false;
+        for (const auto& rec : parse_directory(sector)) {
+            has_dat |= rec.is_dir && rec.name == "DAT";
+            has_pro |= rec.is_dir && rec.name == "PRO";
+        }
+        if (has_dat && has_pro) return lba;
+    }
+    return std::nullopt;
+}
+
 }  // namespace psxdisc

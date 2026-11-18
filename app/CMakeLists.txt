@@ -17,10 +17,16 @@ dw3_target_defaults(dw3recomp)
 
 # The recompiler configuration is built into the program: it holds addresses only, and the setup turns it and the disc
 # into the game module.
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/config/dw3.toml")
-file(READ "${PROJECT_SOURCE_DIR}/config/dw3.toml" DW3_GAME_CONFIG_TEXT)
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/game_config.h"
-    "// Generated from config/dw3.toml.\n#pragma once\ninline constexpr const char kGameConfigToml[] = R\"DW3CFG(${DW3_GAME_CONFIG_TEXT})DW3CFG\";\n")
+set(DW3_GAME_CONFIG_HEADER "// Generated from config/dw3.toml and config/dw3_pal.toml.\n#pragma once\n")
+foreach(config_pair "dw3.toml|kGameConfigUsaToml" "dw3_pal.toml|kGameConfigEuropeToml")
+    string(REPLACE "|" ";" config_pair "${config_pair}")
+    list(GET config_pair 0 config_file)
+    list(GET config_pair 1 config_symbol)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/config/${config_file}")
+    file(READ "${PROJECT_SOURCE_DIR}/config/${config_file}" config_text)
+    string(APPEND DW3_GAME_CONFIG_HEADER "inline constexpr const char ${config_symbol}[] = R\"DW3CFG(${config_text})DW3CFG\";\n")
+endforeach()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/game_config.h" "${DW3_GAME_CONFIG_HEADER}")
 target_include_directories(dw3recomp PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(dw3recomp PRIVATE DW3_VERSION="${PROJECT_VERSION}")
 

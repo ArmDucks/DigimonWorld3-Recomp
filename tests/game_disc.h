@@ -13,6 +13,16 @@ inline std::filesystem::path game_cue() {
     return std::filesystem::path(DW3_GAME_DIR) / "Digimon World 3 (USA).cue";
 }
 
+inline std::filesystem::path europe_cue() {
+    return std::filesystem::path(DW3_GAME_DIR) / "Digimon World 2003 (Europe).cue";
+}
+
+#define DW3_REQUIRE_EUROPE_DISC()                                                     \
+    do {                                                                              \
+        if (!std::filesystem::exists(::dw3test::europe_cue()))                        \
+            GTEST_SKIP() << "disc image not present at " << ::dw3test::europe_cue();  \
+    } while (0)
+
 #define DW3_REQUIRE_DISC()                                                            \
     do {                                                                              \
         if (!std::filesystem::exists(::dw3test::game_cue()))                          \

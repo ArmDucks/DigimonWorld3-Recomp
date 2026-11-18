@@ -1,4 +1,5 @@
 #include "field_menu.h"
+#include "game_addresses.h"
 
 #include <algorithm>
 #include <initializer_list>
@@ -15,7 +16,6 @@ namespace {
 
 // ---- The START menu in the field (addresses in the USA executable) -------------------------------------------------
 
-constexpr uint32_t kListTaskFunction = 0x800126FC;  // per-frame update of the menu's list; reached through the task's method table
 
 // Task fields (the task is allocated at run time; the list function gets it as its first argument).
 constexpr uint32_t kState = 0x0C;      // 1 while the menu runs
@@ -35,9 +35,7 @@ constexpr uint32_t kWindowRow0 = 3 * 4;
 constexpr uint32_t kWindowCursor = 9 * 4;
 
 // Entries of the menu (to put the original texts back): locale table lookup and the string id table.
-constexpr uint32_t kLocaleTableFunction = 0x80044B58;  // (0xB1) -> table of the status texts
 constexpr uint32_t kLocaleTableId = 0xB1;
-constexpr uint32_t kRowStringIds = 0x8003EB20;  // 6 ids per variant, 4 bytes each
 constexpr uint32_t kRowStringsPerVariant = 6;
 
 // The header's hint, in place of the menu's own: the close button (the game's triangle glyph, or the pad's name for
@@ -66,11 +64,11 @@ struct MenuHook {
 
     // The menu's own texts back in the rows and the cursor on the entry that was selected.
     static void restore_menu(Guest& g, uint32_t windows, uint32_t task, uint32_t rows) {
-        const uint32_t table = g.call(g.r32(kLocaleTableFunction), kLocaleTableId);
+        const uint32_t table = g.call(g.r32(game_addresses().localeTableFunction), kLocaleTableId);
         const uint32_t variant = g.r32(task + kRowVariant);
         for (uint32_t i = 0; i < rows; ++i) {
             const uint32_t window = g.r32(windows + kWindowRow0 + 4 * i);
-            const uint32_t id = g.r32(kRowStringIds + variant * 4 * kRowStringsPerVariant + 4 * i);
+            const uint32_t id = g.r32(game_addresses().rowStringIds + variant * 4 * kRowStringsPerVariant + 4 * i);
             g.call(g.r32(window + kWindowSetText), window, table, id);
         }
         const uint32_t cursor = g.r32(windows + kWindowCursor);
@@ -90,7 +88,7 @@ struct MenuHook {
         }
         ctx->r[4] = task;
         ctx->r[5] = windows;
-        self.machine_.lookup_original(kListTaskFunction)(ctx);
+        self.machine_.lookup_original(game_addresses().listTaskFunction)(ctx);
         if (!close) {
             ScreenWindows screen = windows_of(g, windows, rows);
             draw_screen(g, screen, selected, self.model_);
@@ -101,7 +99,7 @@ struct MenuHook {
         FieldMenuSettings* self = instance;
         const uint32_t task = ctx->r[4], windows = ctx->r[5];
         if (!self) {
-            static_cast<dw3::Machine*>(ctx->machine)->lookup_original(kListTaskFunction)(ctx);
+            static_cast<dw3::Machine*>(ctx->machine)->lookup_original(game_addresses().listTaskFunction)(ctx);
             return;
         }
         Guest g(ctx);
@@ -111,7 +109,7 @@ struct MenuHook {
             tick_screen(*self, ctx, task, windows);
             return;
         }
-        self->machine_.lookup_original(kListTaskFunction)(ctx);
+        self->machine_.lookup_original(game_addresses().listTaskFunction)(ctx);
         if (g.r32(task + kState) != kStateRunning || g.r32(task + kSubState) != kSubStateWaiting) return;
         const uint32_t header = g.r32(windows + kWindowHeader);
         if (header) g.show(header, header_hint(close_name_of(self->model_), select_name_of(self->model_)));
@@ -130,11 +128,11 @@ FieldMenuSettings* MenuHook::instance = nullptr;
 FieldMenuSettings::FieldMenuSettings(dw3::Machine& machine, SettingsController& controller, input::ControlsHost* controls)
     : machine_(machine), model_{controller, controls}, title_(machine, model_) {
     MenuHook::instance = this;
-    machine_.override_function(kListTaskFunction, &MenuHook::list_task);
+    machine_.override_function(game_addresses().listTaskFunction, &MenuHook::list_task);
 }
 
 FieldMenuSettings::~FieldMenuSettings() {
-    machine_.override_function(kListTaskFunction, nullptr);
+    machine_.override_function(game_addresses().listTaskFunction, nullptr);
     MenuHook::instance = nullptr;
 }
 

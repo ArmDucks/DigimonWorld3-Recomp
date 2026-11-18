@@ -34,4 +34,8 @@ std::optional<DirRecord> read_root(Disc& disc);
 // Works for directories not reachable from the root (DW3 hides its "AAA" tree at LBA 473).
 std::vector<FileEntry> walk(Disc& disc, uint32_t dir_lba, uint32_t dir_size, const std::string& prefix = "");
 
+// Finds the root of an unlinked directory tree holding "DAT" and "PRO" subdirectories (DW3's "AAA" tree;
+// LBA 473 on USA, 475 on Europe). Returns nullopt if none is found in the first sectors.
+std::optional<uint32_t> find_hidden_root(Disc& disc);
+
 }  // namespace psxdisc

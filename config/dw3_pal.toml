@@ -1,0 +1,51 @@
+# psxrecomp configuration for Digimon World 3 (PAL, SLES-03936)
+# TODO entries are carried over from USA (SLUS-01436) and are unverified for PAL.
+
+[game]
+name = "Digimon World 3"
+serial = "SLES-03936"
+disc_sectors = 294280
+# SHA-1 of the .bin, verified before recompiling (fill in once confirmed across dumps).
+bin_sha1 = ""
+
+[paths]
+extracted = "game/extracted-pal"
+
+[exe]
+path = "SLES_039.36"
+# TODO: derived from the 0x00808080/0x00008881/0x00008781/0x00008681 data table (PAL 0x8005CCCC, +0x18).
+#       USA equivalent: table 0x8005C468 + 0x18 = 0x8005C480. Confirm with a runtime trace.
+code_end = 0x8005CCE4
+# 0x8002EC18: PAL address of the USA 0x8002E824 setjmp resume point (libapi startIntr), found by masked instruction match.
+functions = [0x8002EC18]
+entry = 0x80010E90
+text_addr = 0x80010000
+text_size = 0xE1000
+
+[disc]
+# Root of the hidden AAA/ directory tree (not linked from the ISO9660 root). PAL: 475 (USA: 473).
+hidden_root_lba = 475
+
+[[overlay_slot]]
+name = "mode"
+base = 0x80082CB0  # jal-to-prologue vote: 1173 hits (USA 0x80082448: 1174)
+files = ["AAA/PRO/CARDGAME.PRO", "AAA/PRO/CNTY_SEL.PRO", "AAA/PRO/FIELDSTG.PRO", "AAA/PRO/FIGHTSTG.PRO",
+         "AAA/PRO/SHOCKTST.PRO", "AAA/PRO/SOUNDTST.PRO", "AAA/PRO/STAGSLCT.PRO", "AAA/PRO/STCRDABM.PRO",
+         "AAA/PRO/STCRDDEK.PRO", "AAA/PRO/STCRDSHP.PRO", "AAA/PRO/STDGNAME.PRO", "AAA/PRO/STDWTITL.PRO",
+         "AAA/PRO/STFGTREP.PRO", "AAA/PRO/STGDGLAB.PRO", "AAA/PRO/STGMCARD.PRO", "AAA/PRO/STGTRAIN.PRO",
+         "AAA/PRO/STITSHOP.PRO", "AAA/PRO/STPLNMET.PRO", "AAA/PRO/STSTATUS.PRO"]
+
+# TODO: PAL adds WSTAG920-974.PRO (not in USA); glob covers them.
+[[overlay_slot]]
+name = "stage"
+base = 0x800A5DE0  # jal-to-prologue vote: 51 hits (USA 0x800A4CA4: 48)
+files_glob = ["AAA/PRO/WSTAG*.PRO", "AAA/PRO/WFIGHT*.PRO"]
+
+# TODO: segment bounds are USA values.
+[[resident_segment]]
+start = 0x800A5DE0
+end = 0x800F0DA4
+
+# TODO: verify against PAL.
+[overlay_data]
+files = ["AAA/PRO/SDIGIEDT.PRO", "AAA/PRO/SFSTDATA.PRO", "AAA/PRO/SMDLDATA.PRO"]

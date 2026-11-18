@@ -7,6 +7,8 @@
 #include <initializer_list>
 #include <string>
 #include <string_view>
+
+#include "game_addresses.h"
 #include <vector>
 
 #include "controller.h"
@@ -38,7 +40,6 @@ struct ScreenModel {
 enum Button { kSelect = 0, kUp = 4, kRight = 5, kDown = 6, kLeft = 7, kL1 = 10, kR1 = 11, kCancel = 12, kConfirm = 13, kMenuClose = 14 };
 
 // Sounds: the game's cue function pointer and the cues the menus themselves play.
-constexpr uint32_t kPlaySound = 0x800553F0;
 constexpr uint32_t kSoundCursor = 0x8004513E;
 constexpr uint32_t kSoundConfirm = 0x8004503C;
 constexpr uint32_t kSoundCancel = 0x800450BD;
@@ -92,7 +93,7 @@ public:
     // from its left edge.
     uint32_t text_width(uint32_t window);
     void set_window_x(uint32_t window, uint32_t x) { w16(window + kWindowX, x); }
-    void play(uint32_t cue) { call(r32(kPlaySound), cue); }
+    void play(uint32_t cue) { call(r32(game_addresses().playSound), cue); }
     bool pressed(Button b, bool with_repeat) const;
     void consume_input();
 

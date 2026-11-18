@@ -14,6 +14,22 @@ const ExpectedDisc& retail_usa() {
     return expected;
 }
 
+const ExpectedDisc& retail_europe() {
+    static const ExpectedDisc expected{"SLES-03936", "15f37849a81b9f00e7f20d00de7a465b663a9e86b9d08b05d32dd386be95c546"};
+    return expected;
+}
+
+const std::vector<const ExpectedDisc*>& retail_editions() {
+    static const std::vector<const ExpectedDisc*> all{&retail_usa(), &retail_europe()};
+    return all;
+}
+
+const ExpectedDisc* edition_for_serial(std::string_view serial) {
+    for (const ExpectedDisc* e : retail_editions())
+        if (e->serial == serial) return e;
+    return nullptr;
+}
+
 namespace {
 
 std::string upper(std::string s) {
@@ -75,6 +91,15 @@ std::string_view region_of_serial(std::string_view serial) {
     return {};
 }
 
+DiscCheck check_disc(const std::filesystem::path& image) {
+    DiscCheck last;
+    for (const ExpectedDisc* e : retail_editions()) {
+        last = check_disc(image, *e);
+        if (last.status != DiscStatus::WrongRegion && last.status != DiscStatus::WrongGame) return last;
+    }
+    return last;
+}
+
 DiscCheck check_disc(const std::filesystem::path& image, const ExpectedDisc& expected) {
     std::error_code ec;
     if (!std::filesystem::is_regular_file(image, ec)) return fail(DiscStatus::NotFound, "That file does not exist.");
@@ -100,11 +125,10 @@ DiscCheck check_disc(const std::filesystem::path& image, const ExpectedDisc& exp
 
     if (serial != expected.serial) {
         const std::string_view region = region_of_serial(serial);
-        const std::string wanted = "Digimon World 3 (USA), serial " + expected.serial;
+        std::string wanted = "Digimon World 3 (USA, " + retail_usa().serial + ") or Digimon World 2003 (Europe, " + retail_europe().serial + ")";
         if (region != "USA" && !region.empty())
-            return fail(DiscStatus::WrongRegion,
-                        "This is a " + std::string(region) + " disc (" + serial + "). Only the USA release is supported: " + wanted + ".", serial);
-        return fail(DiscStatus::WrongGame, "This disc has serial " + serial + ", which is not Digimon World 3. Choose " + wanted + ".", serial);
+            return fail(DiscStatus::WrongRegion, "This is a " + std::string(region) + " disc (" + serial + "). Supported: " + wanted + ".", serial);
+        return fail(DiscStatus::WrongGame, "This disc has serial " + serial + ", which is not Digimon World 3. Supported: " + wanted + ".", serial);
     }
 
     const psxdisc::DirRecord* exe = find(boot_file_from_system_cnf(cnf_text));
@@ -113,11 +137,12 @@ DiscCheck check_disc(const std::filesystem::path& image, const ExpectedDisc& exp
     if (exe_data.size() != exe->size) return fail(DiscStatus::NotPlayStation, "The image is truncated: the boot executable cannot be read.", serial);
     if (sha256_hex(exe_data) != expected.exe_sha256)
         return fail(DiscStatus::ModifiedExecutable,
-                    "The serial matches, but the game executable differs from the retail USA release (a bad dump, a patched copy or another revision).",
+                    "The serial matches, but the game executable differs from the retail release (a bad dump, a patched copy or another revision).",
                     serial);
     DiscCheck ok;
     ok.status = DiscStatus::Ok;
     ok.serial = serial;
+    ok.edition = &expected;
     return ok;
 }
 

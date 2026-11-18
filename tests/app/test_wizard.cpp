@@ -224,6 +224,41 @@ TEST(DiscCheck, RejectsBrokenImages) {
 TEST(DiscCheck, RetailConstantsAreWellFormed) {
     EXPECT_EQ(retail_usa().serial, "SLUS-01436");
     EXPECT_EQ(retail_usa().exe_sha256.size(), 64u);
+    EXPECT_EQ(retail_europe().serial, "SLES-03936");
+    EXPECT_EQ(retail_europe().exe_sha256.size(), 64u);
+    EXPECT_NE(retail_usa().exe_sha256, retail_europe().exe_sha256);
+}
+
+TEST(DiscCheck, EditionsAreFoundBySerial) {
+    ASSERT_EQ(retail_editions().size(), 2u);
+    EXPECT_EQ(edition_for_serial("SLUS-01436"), &retail_usa());
+    EXPECT_EQ(edition_for_serial("SLES-03936"), &retail_europe());
+    EXPECT_EQ(edition_for_serial("SLES-12345"), nullptr);
+}
+
+TEST(DiscCheck, AnySupportedEditionIsAccepted) {
+    TempDir dir;
+    SyntheticDisc d;
+    d.boot_line = "BOOT = cdrom:\\SLES_039.36;1\n";
+    d.exe_name = "SLES_039.36;1";
+    d.exe_content = "europe executable";
+    const fs::path image = write_disc(dir.path(), "eu_good.bin", d);
+    EXPECT_FALSE(check_disc(image, retail_usa()).ok());
+    EXPECT_FALSE(check_disc(image).ok());  // the executable is not the retail one
+    const DiscCheck matched = check_disc(image, ExpectedDisc{"SLES-03936", hash_of(d.exe_content)});
+    EXPECT_TRUE(matched.ok());
+    EXPECT_EQ(matched.serial, "SLES-03936");
+}
+
+TEST(DiscCheck, UnsupportedRegionNamesTheSupportedReleases) {
+    TempDir dir;
+    SyntheticDisc d;
+    d.boot_line = "BOOT = cdrom:\\SLPS_123.45;1\n";
+    d.exe_name = "SLPS_123.45;1";
+    const DiscCheck r = check_disc(write_disc(dir.path(), "jp.bin", d));
+    EXPECT_EQ(r.status, DiscStatus::WrongRegion);
+    EXPECT_NE(r.message.find("SLUS-01436"), std::string::npos);
+    EXPECT_NE(r.message.find("SLES-03936"), std::string::npos);
 }
 
 #ifdef DW3_GAME_DIR

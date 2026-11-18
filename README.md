@@ -36,7 +36,8 @@ Every option lives in an in-game settings screen, and in a plain `settings.toml`
 
 1. Get a dump of your own disc as a `.cue` / `.bin` pair.
 2. Start the program. First launch opens a setup window that asks for the `.cue`, checks it's the right game
-   (SLUS-01436) and remembers it. Then it builds the game from your disc on your PC. That takes a minute or a few, it
+   and remembers it. Supported: the USA release (SLUS-01436) and the European *Digimon World 2003* (SLES-03936, English, French,
+   German, Italian and Spanish; the game's own language screen picks one). Then it builds the game from your disc on your PC. That takes a minute or a few, it
    only happens once, and nothing gets downloaded for it. `--setup` opens the window again.
 3. Optional: say yes to HD backgrounds in the same window. It downloads an upscaler and a model, checks them against
    fixed hashes, and builds a pack from your disc. That takes a long time and needs a Vulkan GPU, but you can cancel and

@@ -1,9 +1,10 @@
-// Recognises the supported disc: Digimon World 3, USA release (serial SLUS-01436), by the boot file named in
-// SYSTEM.CNF and a SHA-256 of that executable.
+// Recognises the supported discs: Digimon World 3 (USA, serial SLUS-01436) and Digimon World 2003 (Europe, serial
+// SLES-03936, five languages), by the boot file named in SYSTEM.CNF and a SHA-256 of that executable.
 #pragma once
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace dw3setup {
 
@@ -13,6 +14,10 @@ struct ExpectedDisc {
 };
 
 const ExpectedDisc& retail_usa();
+const ExpectedDisc& retail_europe();
+// Every supported retail release, USA first.
+const std::vector<const ExpectedDisc*>& retail_editions();
+const ExpectedDisc* edition_for_serial(std::string_view serial);
 
 enum class DiscStatus {
     Ok,
@@ -27,11 +32,14 @@ enum class DiscStatus {
 struct DiscCheck {
     DiscStatus status = DiscStatus::NotFound;
     std::string serial;   // as read from the disc, when it could be
+    const ExpectedDisc* edition = nullptr;  // the release it matched, when ok
     std::string message;  // for the player; empty on success
     bool ok() const { return status == DiscStatus::Ok; }
 };
 
-DiscCheck check_disc(const std::filesystem::path& image, const ExpectedDisc& expected = retail_usa());
+DiscCheck check_disc(const std::filesystem::path& image, const ExpectedDisc& expected);
+// Accepts any supported release.
+DiscCheck check_disc(const std::filesystem::path& image);
 
 // "cdrom:\SLUS_014.36;1" from a SYSTEM.CNF text -> "SLUS-01436"; empty if there is no BOOT line.
 std::string serial_from_system_cnf(std::string_view text);

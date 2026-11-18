@@ -1,4 +1,5 @@
 #include "settings_screen.h"
+#include "game_addresses.h"
 
 #include <algorithm>
 
@@ -8,10 +9,9 @@ namespace dw3app::ingame {
 namespace {
 
 // Pad object: per-button shift of the logical bit, and the newly-pressed and auto-repeat masks of port 0.
-constexpr uint32_t kPad = 0x8004AF78;
-constexpr uint32_t kPadPressed = kPad + 0x48;
-constexpr uint32_t kPadRepeat = kPad + 0x4A;
-constexpr uint32_t kPadShifts = kPad + 0xA4;
+uint32_t pad_pressed() { return game_addresses().pad + 0x48; }
+uint32_t pad_repeat() { return game_addresses().pad + 0x4A; }
+uint32_t pad_shifts() { return game_addresses().pad + 0xA4; }
 
 }  // namespace
 
@@ -45,15 +45,15 @@ uint32_t Guest::text_width(uint32_t window) {
 }
 
 bool Guest::pressed(Button b, bool with_repeat) const {
-    const uint32_t shift = r8(kPadShifts + b);
-    uint32_t mask = r16(kPadPressed);
-    if (with_repeat) mask |= r16(kPadRepeat);
+    const uint32_t shift = r8(pad_shifts() + b);
+    uint32_t mask = r16(pad_pressed());
+    if (with_repeat) mask |= r16(pad_repeat());
     return (mask >> shift) & 1u;
 }
 
 void Guest::consume_input() {
-    w16(kPadPressed, 0);
-    w16(kPadRepeat, 0);
+    w16(pad_pressed(), 0);
+    w16(pad_repeat(), 0);
 }
 
 std::vector<uint8_t> text_of(std::initializer_list<std::string_view> parts) {

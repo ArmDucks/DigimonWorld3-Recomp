@@ -475,9 +475,11 @@ private:
         PrepareConfig config;
         config.user_data = launch_.user_data;
         config.disc = dw3::platform::path_from_utf8(state_.disc_path());
-        config.game_config = launch_.prepare->game_config;
+        const ExpectedDisc* edition = check_disc(config.disc).edition;
+        if (!edition) edition = &retail_usa();
+        config.game_config = launch_.prepare->game_config(*edition);
         config.toolchain = launch_.prepare->toolchain;
-        config.build_id = launch_.prepare->build_id;
+        config.build_id = build_id_of(*launch_.prepare, *edition);
         config.jobs = std::max(2u, std::thread::hardware_concurrency());
         config.run = [](const std::vector<std::string>& command, const std::atomic<bool>& cancel) { return run_process(command, cancel); };
         preparer_ = std::make_unique<ModulePreparer>(std::move(config));

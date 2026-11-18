@@ -3,9 +3,11 @@
 // the game's own settings screen.
 #pragma once
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 
+#include "disc_check.h"
 #include "module_build.h"
 #include "wizard_state.h"
 
@@ -14,10 +16,14 @@ namespace dw3setup {
 // What preparing the game needs. Present when the program has no game code of its own.
 struct PrepareSetup {
     Toolchain toolchain;
-    std::string game_config;
-    std::string build_id;
+    std::string version;
+    std::function<std::string(const ExpectedDisc&)> game_config;  // the recompiler configuration of a release
     bool disc_verified = false;  // the disc is known to be right: open straight at the preparation
 };
+
+inline std::string build_id_of(const PrepareSetup& setup, const ExpectedDisc& edition) {
+    return make_build_id(setup.version, setup.game_config(edition), edition.exe_sha256);
+}
 
 struct WizardLaunch {
     std::string initial_disc;          // pre-filled path, such as a stored one that no longer works
