@@ -65,6 +65,8 @@ public:
 
     // True when this executable has the game's recompiled code linked in (checkout builds); otherwise a game module is needed.
     static bool has_linked_code();
+    // The executable the disc boots, as named by SYSTEM.CNF ("SLUS_014.36").
+    const std::string& boot_file() const { return boot_file_; }
     // The recompiled code in use: from the loaded module or linked in.
     std::span<const RecompSegment> segments() const { return segments_; }
     Machine& machine() { return *machine_; }
@@ -121,6 +123,7 @@ private:
     void apply(std::span<const uint8_t> payload);
     std::vector<uint8_t> unpack(std::span<const uint8_t> file);
     std::vector<uint8_t> exe_;
+    std::string boot_file_;
     std::string tty_;
 };
 

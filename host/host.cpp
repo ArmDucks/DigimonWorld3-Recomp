@@ -73,7 +73,7 @@ std::string boot_file_name(const std::vector<uint8_t>& system_cnf) {
     return text.substr(start + 1, end - start - 1);
 }
 
-std::vector<uint8_t> read_boot_exe(psxdisc::Disc& disc) {
+std::vector<uint8_t> read_boot_exe(psxdisc::Disc& disc, std::string& boot_file) {
     auto root = psxdisc::read_root(disc);
     if (!root) return {};
     const auto files = psxdisc::walk(disc, root->lba, root->size);
@@ -81,7 +81,10 @@ std::vector<uint8_t> read_boot_exe(psxdisc::Disc& disc) {
         if (cnf.path != "SYSTEM.CNF") continue;
         const std::string name = boot_file_name(disc.read_file(cnf.lba, cnf.size));
         for (const auto& f : files)
-            if (!name.empty() && f.path == name) return disc.read_file(f.lba, f.size);
+            if (!name.empty() && f.path == name) {
+                boot_file = name;
+                return disc.read_file(f.lba, f.size);
+            }
     }
     return {};
 }
@@ -242,7 +245,7 @@ std::unique_ptr<Host> Host::create(const Config& cfg, std::string& error) {
         error = "cannot open disc image " + cfg.disc_path;
         return nullptr;
     }
-    h->exe_ = read_boot_exe(*h->disc_);
+    h->exe_ = read_boot_exe(*h->disc_, h->boot_file_);
     if (h->exe_.empty()) {
         error = "boot executable named in SYSTEM.CNF not found on disc";
         return nullptr;

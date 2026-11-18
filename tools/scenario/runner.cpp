@@ -620,6 +620,7 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "%s\n", error.c_str());
             return 1;
         }
+        dw3app::ingame::select_game_addresses_for_boot_file(host->boot_file());
         if (opt.no_xa) host->machine().cdrom().set_xa_sink(nullptr);
         host->machine().sio().set_pad_source(0, &pad);
         if (wants_disc_keys) {

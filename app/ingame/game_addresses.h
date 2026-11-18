@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <string>
 
 namespace dw3app::ingame {
 
@@ -99,5 +100,6 @@ inline constexpr GameAddresses kEuropeAddresses{
 inline const GameAddresses* g_game_addresses = &kUsaAddresses;
 inline const GameAddresses& game_addresses() { return *g_game_addresses; }
 inline void select_game_addresses(bool europe) { g_game_addresses = europe ? &kEuropeAddresses : &kUsaAddresses; }
+inline void select_game_addresses_for_boot_file(const std::string& boot_file) { select_game_addresses(boot_file == "SLES_039.36"); }
 
 }  // namespace dw3app::ingame

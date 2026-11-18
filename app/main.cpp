@@ -438,7 +438,6 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
-    dw3app::ingame::select_game_addresses(edition_of(*disc) == &dw3setup::retail_europe());
     cfg.disc_path = *disc;
     cfg.module_path = !opt.module.empty() ? opt.module : dw3::platform::path_to_utf8(prepared_module);
     cfg.card_mode = active.system.memcards ? dw3::host::CardMode::Files : dw3::host::CardMode::None;
@@ -453,6 +452,7 @@ int main(int argc, char** argv) {
         SDL_Log("%s", error.c_str());
         return 1;
     }
+    dw3app::ingame::select_game_addresses_for_boot_file(host->boot_file());
     dw3::Machine& machine = host->machine();
     dw3::Bios& bios = host->bios();
     // Audit runs skip the intro FMV with START at frame 300 unless --intro is given.
