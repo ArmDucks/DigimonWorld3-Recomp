@@ -70,6 +70,7 @@ private:
     std::vector<SegmentJob> jobs_;
     std::vector<AnalysisResult> results_;
     std::vector<TableSegment> tables_;
+    std::set<uint32_t> dynamic_calls_;
 };
 
 bool write_if_changed(const std::filesystem::path& path, const std::string& text);

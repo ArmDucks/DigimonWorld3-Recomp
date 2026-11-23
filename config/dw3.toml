@@ -18,6 +18,8 @@ code_end = 0x8005C480
 #   0x8002E824: resume point after setjmp() in libapi startIntr. The BIOS (HookEntryInt) "longjmps"
 #               here on every interrupt, so it must be callable on its own.
 functions = [0x8002E824]
+# libsnd _SsSndPlay: route through the runtime for the optional music clock hook.
+dynamic_calls = [0x8002F6C8]
 entry = 0x80010EC4
 text_addr = 0x80010000
 text_size = 0xE0000

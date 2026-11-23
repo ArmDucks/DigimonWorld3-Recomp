@@ -101,6 +101,7 @@ private:
 };
 
 std::string FuncEmitter::call_expr(uint32_t t) const {
+    if (ec_.dynamic_calls && ec_.dynamic_calls->count(t)) return fmt("dw3_call(ctx, 0x%08Xu);", t);
     if (ec_.local->count(t)) return func_name(seg_name_, t) + "(ctx);";
     if (ec_.main && ec_.main->count(t)) return func_name(ec_.main_name, t) + "(ctx);";
     return fmt("dw3_call(ctx, 0x%08Xu);", t);

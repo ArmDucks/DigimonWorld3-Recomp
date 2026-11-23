@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -20,6 +21,8 @@ struct EmitContext {
     const std::map<uint32_t, Function>* main = nullptr;
     std::string main_name = "MAIN";
     bool cycle_counting = true;
+    // Resident entry points that intentionally support runtime overrides.
+    const std::set<uint32_t>* dynamic_calls = nullptr;
 };
 
 struct EmittedFile {
