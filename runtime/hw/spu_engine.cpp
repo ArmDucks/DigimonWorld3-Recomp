@@ -129,7 +129,10 @@ void Spu::envelope(Voice& v, uint16_t adsr1, uint16_t adsr2) {
 
 void Spu::generate_sample() {
     const uint16_t cnt = regs_[kSpuCnt >> 1];
-    noise_.tick((cnt >> 10) & 0xF, (cnt >> 8) & 3);
+    const bool music_only = music_clock_divisor_ > 1;
+    const bool mix_sample = !music_only || music_clock_phase_ == 0;
+    if (music_only && ++music_clock_phase_ == music_clock_divisor_) music_clock_phase_ = 0;
+    if (mix_sample) noise_.tick((cnt >> 10) & 0xF, (cnt >> 8) & 3);
     auto mask32 = [&](uint32_t off) {
         return static_cast<uint32_t>(regs_[off >> 1]) | (static_cast<uint32_t>(regs_[(off >> 1) + 1] & 0xFF) << 16);
     };
@@ -144,6 +147,8 @@ void Spu::generate_sample() {
     int32_t sum_l = 0, sum_r = 0, rev_l = 0, rev_r = 0;
     for (int i = 0; i < kVoices; ++i) {
         Voice& v = voices_[static_cast<std::size_t>(i)];
+        const bool music = groups_[static_cast<std::size_t>(i)] == VoiceGroup::Music;
+        if (music && !mix_sample) continue;
         int32_t s = 0;
         if (v.level != 0) {
             int32_t raw = (non >> i & 1) ? static_cast<int16_t>(noise_.level)
@@ -151,7 +156,7 @@ void Spu::generate_sample() {
             s = (raw * v.level) >> 15;
         }
         v.out = static_cast<int16_t>(s);
-        if (s) {
+        if (s && (!music_only || music)) {
             int32_t l = (s * v.vol[0].level) >> 15, r = (s * v.vol[1].level) >> 15;
             const int32_t gain = group_gain_[static_cast<std::size_t>(groups_[static_cast<std::size_t>(i)])];
             if (gain != 256) {
@@ -201,7 +206,7 @@ void Spu::generate_sample() {
         capture_pos_ = (capture_pos_ + 1) & 0x1FF;
     }
     int32_t cdl = 0, cdr = 0;
-    if (cnt & 1) {
+    if (!music_only && (cnt & 1)) {
         cdl = (cd_l * static_cast<int16_t>(regs_[kCdVolL >> 1])) >> 15;
         cdr = (cd_r * static_cast<int16_t>(regs_[kCdVolR >> 1])) >> 15;
         const int32_t cd_gain = group_gain_[static_cast<std::size_t>(VoiceGroup::Music)];
@@ -215,6 +220,10 @@ void Spu::generate_sample() {
         }
     }
 
+    // Keep guest capture and CD consumption running, but output/reverb at the
+    // actual playback rate. Decimating already-rendered audio would raise pitch.
+    ++frames_;
+    if (!mix_sample) return;
     int16_t rl = 0, rr = 0;
     reverb_.tick(ram_.data(), &regs_[kReverbRegs >> 1], cnt & 0x80, clamp16(rev_l), clamp16(rev_r), rl, rr);
     sum_l += (rl * static_cast<int16_t>(regs_[kReverbVolL >> 1])) >> 15;
@@ -226,7 +235,15 @@ void Spu::generate_sample() {
     main_vol_[0].tick();
     main_vol_[1].tick();
     audio_.push(clamp16(out_l), clamp16(out_r));
-    ++frames_;
+}
+
+void Spu::set_music_clock_divisor(int divisor) {
+    divisor = (divisor == 2 || divisor == 4) ? divisor : 1;
+    if (divisor == music_clock_divisor_) return;
+    sync();
+    music_clock_divisor_ = divisor;
+    music_clock_phase_ = 0;
+    audio_.clear();
 }
 
 void Spu::run_to(int64_t now) {
@@ -293,6 +310,7 @@ void Spu::io(StateIo& s) {
     s.io(batching);
     if (s.loading()) {
         groups_stale_ = true;
+        music_clock_phase_ = 0;
         audio_.clear();
         if (batching && !sched_) throw StateError("SPU state has timed generation but start() was not called");
         if (!batching) batch_event_ = kNoEvent;

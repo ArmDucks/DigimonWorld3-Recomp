@@ -19,12 +19,17 @@ public:
 
     // Pushes audio.music_volume and audio.sfx_volume to the SPU; call after either changes.
     void apply();
+    // Keep the score interpreter and music voices at the same fixed-rate clock.
+    // Returns false if the guest function does not match the known libsnd routine.
+    bool set_fast_forward_music(int divisor);
 
     dw3::VoiceGroup classify(int voice) override;
 
 private:
+    friend struct AudioSequenceHook;
     dw3::Machine& machine_;
     SettingsController& controller_;
+    int music_divisor_ = 1;
 };
 
 }  // namespace dw3app::ingame

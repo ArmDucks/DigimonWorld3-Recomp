@@ -31,6 +31,7 @@ constexpr std::string_view kFramePacing[] = {"off", "even"};
 constexpr std::string_view kScaleModes[] = {"fit", "integer", "stretch"};
 constexpr std::string_view kWidescreen[] = {"off", "16:9", "16:10", "21:9"};
 constexpr std::string_view kSpeeds[] = {"2x", "4x", "unlimited"};
+constexpr std::string_view kFastForwardMusic[] = {"muted", "normal"};
 constexpr std::string_view kEncounters[] = {"normal", "half", "off", "double"};
 constexpr std::string_view kGameSpeeds[] = {"1x", "2x", "3x", "4x"};
 constexpr std::string_view kXpMultipliers[] = {"1x", "2x", "3x", "5x", "10x"};
@@ -181,6 +182,8 @@ const SettingInfo kSettings[] = {
      Group::System, Type::String, Apply::Restart, 0, 0, {}, true, DW3_FIELD(system.disc_path)},
     {"system.fast_forward_speed", "Fast-forward speed", "Speed while fast-forwarding (hold Tab, or press F10 to latch it).",
      Group::System, Type::Choice, Apply::Live, 0, 0, kSpeeds, false, DW3_FIELD(system.fast_forward_speed)},
+    {"system.fast_forward_music", "Fast-forward music", "Muted silences fast-forward; Normal keeps sequenced music at its original tempo and pitch at 2x and 4x on the USA disc (effects and movies muted). Unlimited and unverified disc versions remain muted.",
+     Group::System, Type::Choice, Apply::Live, 0, 0, kFastForwardMusic, false, DW3_FIELD(system.fast_forward_music)},
 
     {"gameplay.encounters", "Random encounters", "How often random battles start while walking: normal, half as often, never, or twice as often.",
      Group::Gameplay, Type::Choice, Apply::Live, 0, 0, kEncounters, false, DW3_FIELD(gameplay.encounters)},

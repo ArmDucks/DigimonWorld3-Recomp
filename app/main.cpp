@@ -238,6 +238,7 @@ Options parse(int argc, char** argv) {
         else if (a == "--texture-pack" && i + 1 < argc) set("graphics.texture_pack", argv[++i]);
         else if (a == "--dump-textures" && i + 1 < argc) o.dump_textures = argv[++i];
         else if (a == "--fast-forward-speed" && i + 1 < argc) set("system.fast_forward_speed", argv[++i]);
+        else if (a == "--fast-forward-music" && i + 1 < argc) set("system.fast_forward_music", argv[++i]);
         else if (a == "--encounters" && i + 1 < argc) set("gameplay.encounters", argv[++i]);
         else if (a == "--game-speed" && i + 1 < argc) set("gameplay.game_speed", argv[++i]);
         else if (a == "--god-mode") set("gameplay.god_mode", "true");
@@ -562,7 +563,7 @@ int main(int argc, char** argv) {
             if (id == "graphics.display_mode" || id == "graphics.monitor" || id.starts_with("graphics.window_") ||
                 id.starts_with("graphics.fullscreen_")) display = true;
             else if (id == "gameplay.game_speed") {
-                audio.set_speed(dw3app::game_speed_multiplier(now.gameplay.game_speed));
+                // Applied together with the fast-forward audio mode at the end of the frame.
                 graphics = true;  // vsync is off while the game runs faster than the display
             }
             else if (id == "audio.mute") audio.set_muted(now.audio.mute);
@@ -756,6 +757,8 @@ int main(int argc, char** argv) {
     dw3app::Pacer pacer;
     dw3app::PresentCadence present_cadence;
     bool pacer_started = false, fast_forwarding = false, display_changed = false, fps_shown = false;
+    int active_music_divisor = 1;
+    bool music_unavailable_notified = false;
     uint64_t fps_window_start = SDL_GetTicksNS();
     int fps_frames = 0;
     constexpr uint64_t kFpsWindowNs = 500'000'000;
@@ -883,11 +886,25 @@ int main(int argc, char** argv) {
             dw3::host::Host::stop();
         }
         // Real-time pacing against emulated time (exact NTSC/PAL frame period from the video clock). Fast-forward
-        // changes the speed; the sound is dropped while it lasts so it can neither crackle nor build up latency.
+        // changes the speed; audio is muted by default or plays sequenced music at 1x.
         const bool ff = fast_forward.active();
+        const auto& system = settings.active().system;
+        const int requested_music_divisor = dw3app::fast_forward_music_divisor(ff, system.fast_forward_music, system.fast_forward_speed);
+        const bool music_valid = audio_groups.set_fast_forward_music(requested_music_divisor);
+        const int music_divisor = music_valid ? requested_music_divisor : 1;
+        if (!music_valid && !music_unavailable_notified) {
+            SDL_Log("normal fast-forward music is unavailable for this disc; using muted fast-forward");
+            presenter->notify("FF music unavailable; muted");
+        }
+        music_unavailable_notified = !music_valid;
+        audio.set_discard(ff && music_divisor == 1);
+        audio.set_speed(music_divisor > 1 ? 1.0 : dw3app::game_speed_multiplier(settings.active().gameplay.game_speed));
+        if (music_divisor != active_music_divisor) {
+            active_music_divisor = music_divisor;
+            audio.reset_queue();
+        }
         if (ff != fast_forwarding) {
             fast_forwarding = ff;
-            audio.set_discard(ff);
             presenter->update_options(present_options(settings.active()), machine.gpu());
         }
         if (!unpaced || opt.audio) {

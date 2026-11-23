@@ -78,6 +78,7 @@ struct Settings {
         std::string memcard2;        // empty selects <user data dir>/memcards/slot2.mcd
         std::string disc_path;       // the disc image chosen in the first-run setup; empty if none yet
         int fast_forward_speed = 1;  // choice: 2x, 4x, unlimited
+        int fast_forward_music = 0;  // choice: muted, normal (sequenced music at 1x)
         bool operator==(const System&) const = default;
     } system;
 
