@@ -9,6 +9,16 @@ namespace dw3app {
 // Emulated-time multiplier for a fast_forward_speed choice (0 means no limit); the index is that of system.fast_forward_speed.
 inline double fast_forward_multiplier(int choice) { return choice == 0 ? 2.0 : choice == 1 ? 4.0 : 0.0; }
 
+// The fixed-speed modes have a well-defined guest-to-audio clock ratio. Unlimited has none.
+inline int fast_forward_music_divisor(bool fast_forward, int music_choice, int speed_choice) {
+    return fast_forward && music_choice == 1 && (speed_choice == 0 || speed_choice == 1)
+        ? static_cast<int>(fast_forward_multiplier(speed_choice)) : 1;
+}
+
+inline bool music_sequence_tick(uint64_t video_frame, int divisor) {
+    return divisor <= 1 || video_frame % static_cast<uint64_t>(divisor) == 0;
+}
+
 // Emulated-time multiplier for a gameplay.game_speed choice (1x, 2x, 3x, 4x).
 inline double game_speed_multiplier(int choice) { return choice < 0 ? 1.0 : choice > 3 ? 4.0 : choice + 1.0; }
 

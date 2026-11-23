@@ -77,6 +77,10 @@ public:
         group_gain_[static_cast<std::size_t>(group)] = std::clamp(percent, 0, 100) * 256 / 100;
     }
 
+    // Host-only fixed fast-forward clock. Music voices and audible DSP advance
+    // once every divisor guest samples. Effects remain timed to the guest but silent.
+    void set_music_clock_divisor(int divisor);
+
     // Starts timed sample generation driven by the scheduler.
     void start(Scheduler& sched);
     void set_cd_source(CdAudioSource* src) { cd_ = src; }
@@ -177,6 +181,8 @@ private:
     int64_t next_cycle_ = 0;
     EventId batch_event_ = kNoEvent;
     uint64_t frames_ = 0;
+    int music_clock_divisor_ = 1;
+    int music_clock_phase_ = 0;
     AudioRing audio_;
 };
 

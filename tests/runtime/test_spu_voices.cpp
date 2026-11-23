@@ -90,6 +90,52 @@ TEST(SpuVoice, KeyOnStartsAttackAtZeroLevel) {
     EXPECT_EQ(r.spu.voices_on(), 1u);
 }
 
+TEST(SpuVoice, NormalSpeedMusicFastForwardMatchesOriginalSamples) {
+    for (int divisor : {2, 4}) {
+        Rig baseline, accelerated;
+        constant_voice(baseline, 0, 0x1000, 0x77, 0x1800);
+        constant_voice(accelerated, 0, 0x1000, 0x77, 0x1800);
+        baseline.enable_output();
+        accelerated.enable_output();
+        baseline.key_on(0);
+        accelerated.key_on(0);
+        accelerated.spu.set_music_clock_divisor(divisor);
+        baseline.tick(1000);
+        accelerated.tick(1000 * divisor);
+        EXPECT_EQ(accelerated.drain(), baseline.drain());
+        EXPECT_EQ(accelerated.spu.voice_address(0), baseline.spu.voice_address(0));
+        EXPECT_EQ(accelerated.spu.voice_counter(0), baseline.spu.voice_counter(0));
+        EXPECT_EQ(accelerated.spu.voice_level(0), baseline.spu.voice_level(0));
+        accelerated.spu.set_music_clock_divisor(1);
+        accelerated.tick(50);
+        baseline.tick(50);
+        EXPECT_EQ(accelerated.drain(), baseline.drain());
+    }
+}
+
+TEST(SpuVoice, NormalSpeedMusicKeepsEffectsRunningButSilent) {
+    struct Classifier : VoiceClassifier {
+        VoiceGroup classify(int voice) override { return voice == 0 ? VoiceGroup::Music : VoiceGroup::Effects; }
+    } classifier;
+    Rig baseline, accelerated;
+    baseline.spu.set_voice_classifier(&classifier);
+    accelerated.spu.set_voice_classifier(&classifier);
+    constant_voice(baseline, 1);
+    constant_voice(accelerated, 1);
+    baseline.enable_output();
+    accelerated.enable_output();
+    baseline.key_on(1);
+    accelerated.key_on(1);
+    accelerated.spu.set_music_clock_divisor(4);
+    baseline.tick(400);
+    accelerated.tick(400);
+    EXPECT_EQ(accelerated.spu.voice_counter(1), baseline.spu.voice_counter(1));
+    EXPECT_EQ(accelerated.spu.voice_level(1), baseline.spu.voice_level(1));
+    const auto samples = accelerated.drain();
+    EXPECT_EQ(samples.size(), 200u);
+    EXPECT_TRUE(std::all_of(samples.begin(), samples.end(), [](int16_t x) { return x == 0; }));
+}
+
 TEST(SpuVoice, KeyOnLoadsStartAddress) {
     Rig r;
     constant_voice(r, 5, 0x2468);

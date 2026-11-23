@@ -94,6 +94,9 @@ bool Game::load(const toml::table& cfg, const FileSource& source, std::string& e
     jobs_.clear();
     results_.clear();
     tables_.clear();
+    dynamic_calls_.clear();
+    if (auto* arr = cfg["exe"]["dynamic_calls"].as_array())
+        for (auto& v : *arr) if (auto address = v.value<uint32_t>()) dynamic_calls_.insert(*address);
     {
         auto file = source.read(cfg["exe"]["path"].value_or(std::string("SLUS_014.36")));
         auto exe = psxdisc::parse_psxexe(file);
@@ -180,6 +183,7 @@ bool Game::emit(const fs::path& out_dir, const Progress& progress, EmitStats& st
         c.seg = &jobs_[k].seg;
         c.local = &results_[k].functions;
         c.main = &results_[0].functions;  // job 0 is always MAIN
+        c.dynamic_calls = &dynamic_calls_;
         for (auto& f : emit_segment(c, 64, &stats.warnings)) {
             stats.files_changed += write_if_changed(out_dir / f.name, f.text);
             manifest += f.name + "\n";

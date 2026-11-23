@@ -289,6 +289,24 @@ TEST(FastForward, Multipliers) {
     EXPECT_EQ(fast_forward_multiplier(2), 0.0);
 }
 
+TEST(FastForward, MusicModeAndSequenceClock) {
+    EXPECT_EQ(defaults().system.fast_forward_music, 0);
+    Settings s = defaults();
+    ASSERT_TRUE(set(s, "system.fast_forward_music", "normal"));
+    LoadReport report;
+    EXPECT_EQ(settings_from_toml(settings_to_toml(s), report).system.fast_forward_music, 1);
+    EXPECT_EQ(fast_forward_music_divisor(false, 1, 1), 1);
+    EXPECT_EQ(fast_forward_music_divisor(true, 0, 1), 1);
+    EXPECT_EQ(fast_forward_music_divisor(true, 1, 0), 2);
+    EXPECT_EQ(fast_forward_music_divisor(true, 1, 1), 4);
+    EXPECT_EQ(fast_forward_music_divisor(true, 1, 2), 1);
+    for (int divisor : {1, 2, 4}) {
+        int ticks = 0;
+        for (uint64_t frame = 0; frame < 240; ++frame) ticks += music_sequence_tick(frame, divisor);
+        EXPECT_EQ(ticks, 240 / divisor);
+    }
+}
+
 TEST(FastForward, HoldAndLatchCombine) {
     FastForwardInput in;
     EXPECT_FALSE(in.active());

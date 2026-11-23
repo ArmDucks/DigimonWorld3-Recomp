@@ -23,6 +23,7 @@ struct GameAddresses {
     uint32_t textWindowTick;
     uint32_t measureBox;
     uint32_t voiceTable;
+    uint32_t sequencePlayTick;
     uint32_t menuTask;
     uint32_t menuTaskSignature;
     uint32_t menuTaskSignatureAt;
@@ -53,6 +54,7 @@ inline constexpr GameAddresses kUsaAddresses{
     .textWindowTick = 0x8001A890,
     .measureBox = 0x80019C2C,
     .voiceTable = 0x800815C0,
+    .sequencePlayTick = 0x8002F6C8,
     .menuTask = 0x80084B68,
     .menuTaskSignature = 0x10650017,
     .menuTaskSignatureAt = 0x80084B88,
@@ -84,6 +86,7 @@ inline constexpr GameAddresses kEuropeAddresses{
     .textWindowTick = 0x8001AC14,
     .measureBox = 0x80019FB0,
     .voiceTable = 0x80081E28,
+    .sequencePlayTick = 0,  // PAL has not been verified; leave fast-forward music muted.
     .menuTask = 0x80085594,
     .menuTaskSignature = 0x10650017,
     .menuTaskSignatureAt = 0x800855B4,

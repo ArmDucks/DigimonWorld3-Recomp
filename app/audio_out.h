@@ -58,11 +58,17 @@ public:
     // Game speed above 1: the SPU produces `speed` times the normal samples per second; they are time-compressed by the
     // same factor so the device plays them at their normal pitch.
     void set_speed(double speed) {
+        if (speed == stretch_.speed()) return;
         stretch_.set_speed(speed);
         if (stream_ && !discard_) {
             SDL_ClearAudioStream(stream_);
             refill();
         }
+    }
+    void reset_queue() {
+        if (!stream_) return;
+        SDL_ClearAudioStream(stream_);
+        if (!discard_) refill();
     }
     // Fast-forward: the SPU is still drained so it never backs up, but nothing is played; going back to normal speed
     // starts from an empty queue, so no stale audio and no added latency.

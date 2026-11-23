@@ -50,6 +50,7 @@ constexpr Labels kLabels[] = {
     {"controls.deadzone", "Deadzone", 5},
     {"controls.prompts", "Prompts", 1},
     {"system.fast_forward_speed", "Fast Forward", 1},
+    {"system.fast_forward_music", "FF Music", 1},
     {"gameplay.encounters", "Encounters", 1},
     {"gameplay.game_speed", "Game Speed", 1},
     {"gameplay.god_mode", "God Mode", 1},

@@ -14,7 +14,8 @@ namespace {
 constexpr uint32_t kBase = 0x80010000;
 
 // Analyses `p` with a single entry at its base and returns the emitted entry function.
-std::string emit_entry(const Program& p, std::vector<std::string>* warnings = nullptr, bool cycles = true) {
+std::string emit_entry(const Program& p, std::vector<std::string>* warnings = nullptr, bool cycles = true,
+                       const std::set<uint32_t>* dynamic_calls = nullptr) {
     static CodeSegment seg;  // EmitContext holds pointers; keep them alive for the call only
     seg = p.segment("TXT");
     AnalysisConfig cfg;
@@ -27,6 +28,7 @@ std::string emit_entry(const Program& p, std::vector<std::string>* warnings = nu
     ec.seg = &seg;
     ec.local = &r.functions;
     ec.cycle_counting = cycles;
+    ec.dynamic_calls = dynamic_calls;
     return emit_function(ec, r.functions.at(p.base()), warnings);
 }
 
@@ -143,6 +145,14 @@ TEST(EmitterText, ExternalCallGoesThroughLookup) {
     Program p(kBase);
     p.emit({jal(0x80200000), nop(), jr(ra), nop()});
     EXPECT_TRUE(contains(emit_entry(p, nullptr, false), "dw3_call(ctx, 0x80200000u);"));
+}
+
+TEST(EmitterText, ConfiguredResidentHookGoesThroughLookup) {
+    Program p(kBase);
+    p.emit({jal(kBase + 16), nop(), jr(ra), nop(), jr(ra), nop()});
+    const std::set<uint32_t> hooks{kBase + 16};
+    EXPECT_TRUE(contains(emit_entry(p, nullptr, false), "f_TXT_80010010(ctx);"));
+    EXPECT_TRUE(contains(emit_entry(p, nullptr, false, &hooks), "dw3_call(ctx, 0x80010010u);"));
 }
 
 TEST(EmitterText, IndirectJumpAndCallUseLookup) {

@@ -68,6 +68,7 @@ everything else applies immediately.
 | `system.memcard1`, `system.memcard2` (restart) | paths, empty for the defaults | `--memcard1`, `--memcard2` |
 | `system.disc_path` (restart) | path of the disc image (`.cue`); written by the first-run setup, not listed in the in-game screen | `--disc` |
 | `system.fast_forward_speed` | `2x`, `4x`, `unlimited` | `--fast-forward-speed` |
+| `system.fast_forward_music` | `muted` (default), `normal` (USA, 2x/4x only) | `--fast-forward-music` |
 | `gameplay.encounters` | `normal`, `half`, `off`, `double` | `--encounters` |
 | `gameplay.game_speed` | `1x`, `2x`, `3x`, `4x` | `--game-speed` |
 | `gameplay.god_mode` | bool | `--god-mode` |
@@ -83,7 +84,7 @@ All of these default to the original game and apply immediately; they also appea
 - **Game speed** runs the whole game (field, menus, battles, cutscenes) at 2x to 4x. Sound keeps playing at its normal
   pitch: the SPU output is time-compressed with a waveform-similarity overlap-add stretcher, so music and effects stay
   in tune but cover more game time per second. F4 (the gamepad's Guide button) cycles the speed for this session.
-  The fast-forward keys below still override it while active (and, unlike game speed, silence the sound).
+  The fast-forward keys below still override it while active (and silence the sound by default).
 - **God mode** makes the party take no damage and defeat enemies with the first hit that lands, in every battle. Items
   and status effects are untouched. It is off by default and not meant for a first playthrough.
 - **XP multiplier** (1x, 2x, 3x, 5x, 10x) scales the experience each Digimon receives when a won battle's results are
@@ -323,5 +324,9 @@ before. Options that only matter in the field, such as the encounter rate, can b
 ## Fast-forward
 
 `system.fast_forward_speed` sets the speed for both the hold key and the latch: 2x, 4x or unlimited. While it is on,
-the picture is presented without waiting for the display and the sound is muted; normal speed resumes from an empty
-audio queue, so there is no crackling or added delay.
+the picture is presented without waiting for the display. `system.fast_forward_music` is `muted` by default. Set it
+to `normal` to keep sequenced background music at 1x during fixed 2x and 4x fast-forward on the USA release.
+Sound effects and CD/XA movie audio are muted in this mode. Unlimited fast-forward remains muted because it has
+no fixed clock ratio. Unverified disc versions also fall back to muted fast-forward.
+The score interpreter and music voice sample clock are both divided by the chosen multiplier, preserving melody,
+tempo and pitch without time-stretching the music. Bank loading and stop requests still run at the game speed.
